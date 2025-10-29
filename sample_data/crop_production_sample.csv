@@ -1,0 +1,11 @@
+state,district,market,commodity,variety,grade,arrival_date,min_price,max_price,modal_price
+Andhra Pradesh,Chittor,Palamaner,Tomato,Hybrid,FAQ,29/10/2025,2000,2500,2300
+Andhra Pradesh,Chittor,Punganur,Tomato,Hybrid,FAQ,29/10/2025,1940,2600,2270
+Andhra Pradesh,Chittor,Vayalapadu,Tomato,Hybrid,FAQ,29/10/2025,2200,2800,2400
+Andhra Pradesh,East Godavari,Ravulapelem,Banana,Chakkarakeli(White),Large,29/10/2025,2400,3400,2900
+Andhra Pradesh,East Godavari,Ravulapelem,Banana,Karpura,Large,29/10/2025,1600,2900,2600
+Andhra Pradesh,Krishna,Tiruvuru,Paddy(Dhan)(Common),Sona,FAQ,29/10/2025,2400,2700,2550
+Andhra Pradesh,Krishna,Tiruvuru,Rice,1009 Kar,FAQ,29/10/2025,4500,4800,4700
+Andhra Pradesh,Kurnool,Kurnool,Onion,Local,Non-FAQ,29/10/2025,429,1275,911
+Andhra Pradesh,Kurnool,Pattikonda,Tomato,Local,Non-FAQ,29/10/2025,1000,1800,1400
+Andhra Pradesh,Kurnool,Yemmiganur,Groundnut,TMV-2,FAQ,29/10/2025,3810,5069,5069
