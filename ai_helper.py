@@ -1,98 +1,99 @@
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
-import sqlite3
+import google.generativeai as genai
+import duckdb
 import json
 
-# Load API key
+# ==============================
+# 1️⃣ Load API Key and Configure
+# ==============================
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Initialize model
 model = genai.GenerativeModel("models/gemini-2.5-flash")
 
+# Path to DuckDB database
 DB_PATH = "samarth.db"
 
 
-def run_sql_query(query):
-    """Execute SQL query on samarth.db and return results as list of tuples."""
+# ==============================
+# 2️⃣ Query database
+# ==============================
+def fetch_data_from_db(query):
+    """Run an SQL query on the local DuckDB database and return results."""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        columns = [desc[0]
-                   for desc in cursor.description] if cursor.description else []
-        conn.close()
-        return {"columns": columns, "rows": rows}
+        con = duckdb.connect(DB_PATH)
+        result = con.execute(query).fetchall()
+        con.close()
+        return result
     except Exception as e:
-        return {"error": str(e)}
+        return f"❌ Database Error: {e}"
 
 
+# ==============================
+# 3️⃣ Ask Gemini to create SQL
+# ==============================
 def query_with_reasoning(user_question):
     """
-    Full pipeline:
-    1. Ask Gemini to generate SQL + explanation.
-    2. Execute SQL on local DB.
-    3. Ask Gemini to summarize the results.
+    Take user's natural question, ask Gemini to generate SQL,
+    execute it, and return result + explanation.
     """
     prompt = f"""
-    You are an expert data analyst working with an SQLite database named samarth.db.
+You are a data analyst working with a DuckDB database named samarth.db.
 
-    Tables available:
-    1. crop_data(state, district, market, commodity, variety, grade, arrival_date, min_price, max_price, modal_price)
-    2. rainfall_data(state, district, year, month, rainfall_amount)
+Here is the database schema:
 
-    The user asks: "{user_question}"
+TABLE: crop_market_prices
+Columns: state, district, market, commodity, variety, grade, arrival_date, min_price, max_price, modal_price
 
-    Generate a JSON response with:
-    {{
-      "sql_query": "...",
-      "explanation": "..."
-    }}
-    """
+TABLE: rainfall
+Columns: state, district, month, year, rainfall_amount
 
-    response = model.generate_content(prompt)
-    text = response.text
+TABLE: crop_prod
+Columns: (production related — state, district, crop, season, area, production, year, etc.)
 
-    # Extract SQL and explanation
+⚠️ Important instructions:
+- Always use the exact table names above (for crop price queries use `crop_market_prices`).
+- Use valid DuckDB SQL syntax.
+- Return your answer strictly in this JSON format:
+{{
+  "sql_query": "<SQL query>",
+  "explanation": "<short natural explanation>"
+}}
+
+Now, write an SQL query to answer this user question:
+"{user_question}"
+"""
+
+    # Generate the structured response
+    response = model.generate_content(prompt).text
+
+    # Try to parse JSON safely
     try:
-        data = json.loads(text)
-        sql_query = data.get("sql_query", "")
-        explanation = data.get("explanation", "")
-    except:
-        sql_query = None
-        explanation = f"Couldn't parse Gemini output:\n{text}"
+        # Clean code fences if present
+        if "```" in response:
+            response = response.split("```")[-2].replace("json", "").strip()
+        parsed = json.loads(response)
 
-    if not sql_query:
-        return {"error": "No valid SQL query generated", "raw_output": text}
+        sql_query = parsed.get("sql_query", "")
+        explanation = parsed.get("explanation", "")
 
-    print(f"\n🧠 Gemini generated SQL:\n{sql_query}\n")
+        # Fix common table name errors
+        if "crop_data" in sql_query:
+            sql_query = sql_query.replace("crop_data", "crop_market_prices")
 
-    # Step 2: Run SQL query on local DB
-    db_result = run_sql_query(sql_query)
-    if "error" in db_result:
-        return {"error": db_result["error"], "sql_query": sql_query}
+        # Execute the SQL query
+        result = fetch_data_from_db(sql_query)
 
-    # Step 3: Ask Gemini to summarize results
-    if not db_result["rows"]:
-        return {"answer": "No results found.", "sql_query": sql_query}
+        return {
+            "sql_query": sql_query,
+            "explanation": explanation,
+            "result": result
+        }
 
-    summary_prompt = f"""
-    User asked: "{user_question}"
-
-    Here is the SQL result:
-    Columns: {db_result['columns']}
-    Rows: {db_result['rows'][:5]}  # only show first 5 rows
-
-    Give a short, simple explanation in natural language.
-    """
-    summary = model.generate_content(summary_prompt).text
-
-    return {
-        "question": user_question,
-        "sql_query": sql_query,
-        "result_preview": db_result["rows"][:5],
-        "summary": summary,
-        "gemini_reasoning": explanation
-    }
+    except Exception as e:
+        return {
+            "error": f"❌ Failed to parse model output: {e}",
+            "raw_output": response
+        }

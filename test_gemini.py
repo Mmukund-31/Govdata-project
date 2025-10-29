@@ -1,4 +1,4 @@
 from ai_helper import query_with_reasoning
 
-user_question = "Show me the average modal price of rice in Karnataka"
+user_question = "What is the average modal price of Tomato in Andhra Pradesh?"
 print(query_with_reasoning(user_question))
